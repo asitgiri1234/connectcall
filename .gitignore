@@ -1,0 +1,62 @@
+# ---- Secrets: never commit ----
+credentials.txt
+.env
+.env.*
+env.json
+dart_defines.json
+android/app/google-services.json
+ios/Runner/GoogleService-Info.plist
+lib/firebase_options.dart
+*.keystore
+*.jks
+key.properties
+
+# ---- Flutter/Dart ----
+.dart_tool/
+.packages
+.pub-cache/
+.pub/
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# ---- IDE ----
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+
+# ---- Android ----
+android/.gradle/
+android/local.properties
+android/captures/
+android/.cxx/
+android/app/debug/
+android/app/profile/
+android/app/release/
+
+# ---- iOS ----
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/Flutter.framework
+ios/Flutter/Flutter.podspec
+ios/Flutter/Generated.xcconfig
+ios/Flutter/flutter_export_environment.sh
+
+# ---- OS ----
+.DS_Store
+Thumbs.db
+
+# ---- Flutter generated ----
+# ---- Secrets: never commit ----
+
+# ---- Flutter/Dart ----
+
+# ---- IDE ----
+
+# ---- Android ----
+
+# ---- iOS ----
+
+# ---- OS ----
