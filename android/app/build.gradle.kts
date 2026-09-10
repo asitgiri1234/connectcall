@@ -6,7 +6,11 @@ plugins {
 
 android {
     namespace = "com.asitgiri.connectcall"
-    compileSdk = flutter.compileSdkVersion
+    // Pinned above Flutter's default (36) because permission_handler_android
+    // compiles against 37. Android SDKs are backward compatible, so compiling
+    // against the highest requirement is safe; minSdk still governs which
+    // devices can install, and targetSdk still governs runtime behaviour.
+    compileSdk = 37
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
