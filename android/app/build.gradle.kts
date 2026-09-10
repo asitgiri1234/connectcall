@@ -16,9 +16,9 @@ android {
 
     defaultConfig {
         applicationId = "com.asitgiri.connectcall"
-        // 23 is the floor imposed by firebase_auth. Agora needs 21 and
-        // permission_handler needs 21, so 23 satisfies every dependency.
-        minSdk = 23
+        // Flutter's default is API 24, which clears every dependency floor
+        // here: firebase_auth needs 23, Agora and permission_handler need 21.
+        minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         // Uses the version code from pubspec.yaml. When using split APKs, 1000 * ABI_VERSION
         // is added automatically by Flutter. (https://developer.android.com/studio/build/configure-apk-splits#configure-APK-versions)
