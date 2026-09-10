@@ -1,7 +1,10 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../providers/auth_providers.dart';
+import '../../providers/startup_providers.dart';
 import '../../screens/auth/login_screen.dart';
 import '../../screens/auth/register_screen.dart';
 import '../../screens/contacts/contacts_screen.dart';
@@ -14,16 +17,62 @@ import 'routes.dart';
 
 final _rootKey = GlobalKey<NavigatorState>(debugLabel: 'root');
 
-/// The app router.
+/// Routes reachable while signed out.
+const _publicRoutes = {Routes.splash, Routes.login, Routes.register};
+
+/// The app router, with auth-gated redirection.
 ///
-/// Exposed as a provider so that in Phase 1 it can `ref.watch` auth state
-/// and drive the signed-in / signed-out redirect from one place, rather
-/// than every screen checking auth for itself.
+/// Every "where should this user be" decision lives in the [GoRouter.redirect]
+/// below, so no screen has to check auth for itself and there is exactly one
+/// place to reason about the signed-in / signed-out boundary.
 final routerProvider = Provider<GoRouter>((ref) {
+  // GoRouter needs a Listenable to know when to re-run its redirect. This
+  // bridges the Riverpod providers the redirect depends on to that API: the
+  // counter value is meaningless, the notification is the point.
+  final refresh = ValueNotifier<int>(0);
+  ref.onDispose(refresh.dispose);
+  ref.listen<AsyncValue<User?>>(
+    authStateProvider,
+    (_, next) => refresh.value++,
+    fireImmediately: true,
+  );
+  ref.listen<bool>(
+    appReadyProvider,
+    (_, next) => refresh.value++,
+    fireImmediately: true,
+  );
+
   return GoRouter(
     navigatorKey: _rootKey,
     initialLocation: Routes.splash,
+    refreshListenable: refresh,
     debugLogDiagnostics: true,
+    redirect: (context, state) {
+      final auth = ref.read(authStateProvider);
+      final location = state.matchedLocation;
+
+      // Firebase restores a persisted session asynchronously, and the splash
+      // has a minimum display time. Until both settle we do not know where
+      // this user belongs, so hold on splash rather than guessing signed-out
+      // and bouncing a returning user through the login screen.
+      if (!ref.read(appReadyProvider)) {
+        return location == Routes.splash ? null : Routes.splash;
+      }
+
+      final signedIn = auth.value != null;
+      final onPublicRoute = _publicRoutes.contains(location);
+
+      if (!signedIn) {
+        // Splash has finished and there is no session: send them to login.
+        return onPublicRoute && location != Routes.splash ? null : Routes.login;
+      }
+
+      // Signed in, but sitting on splash or an auth form: move them into
+      // the app. This is what makes a successful login navigate.
+      if (onPublicRoute) return Routes.home;
+
+      return null;
+    },
     routes: [
       GoRoute(
         path: Routes.splash,

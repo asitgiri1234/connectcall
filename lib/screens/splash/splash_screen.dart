@@ -1,23 +1,25 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/constants/app_constants.dart';
-import '../../core/router/routes.dart';
 import '../../core/theme/app_colors.dart';
+import '../../providers/startup_providers.dart';
 
 /// Screen 1: logo, app name, loading state.
 ///
-/// Phase 1 replaces the fixed delay with a wait on the Firebase auth state,
-/// routing to Home or Login accordingly. The minimum-visible delay stays so
-/// the splash cannot flash by on a fast cold start.
-class SplashScreen extends StatefulWidget {
+/// This screen never navigates. It watches [splashGateProvider] purely to
+/// start the minimum-display timer; the router's redirect decides where to go
+/// once both that timer and the Firebase session restore have settled. Keeping
+/// the decision in the redirect means there is one place that answers "where
+/// does this user belong", rather than two that can disagree.
+class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
 
   @override
-  State<SplashScreen> createState() => _SplashScreenState();
+  ConsumerState<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen>
+class _SplashScreenState extends ConsumerState<SplashScreen>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller = AnimationController(
     vsync: this,
@@ -28,19 +30,6 @@ class _SplashScreenState extends State<SplashScreen>
       CurvedAnimation(parent: _controller, curve: Curves.easeOut);
 
   @override
-  void initState() {
-    super.initState();
-    _bootstrap();
-  }
-
-  Future<void> _bootstrap() async {
-    await Future.delayed(AppConstants.splashMinimum);
-    if (!mounted) return;
-    // TODO(phase-1): route on Firebase auth state instead of always login.
-    context.go(Routes.login);
-  }
-
-  @override
   void dispose() {
     _controller.dispose();
     super.dispose();
@@ -48,6 +37,9 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
+    // Subscribing here is what starts the minimum-display timer.
+    ref.watch(splashGateProvider);
+
     final theme = Theme.of(context);
     return Scaffold(
       backgroundColor: AppColors.primary,
