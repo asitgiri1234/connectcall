@@ -41,4 +41,9 @@ class DbPaths {
   static String historyOf(String uid) => '$callHistory/$uid';
   static String historyEntry(String uid, String callId) =>
       '$callHistory/$uid/$callId';
+
+  static const String blocks = 'blocks';
+  static String blocksOf(String uid) => '$blocks/$uid';
+  static String block(String uid, String blockedUid) =>
+      '$blocks/$uid/$blockedUid';
 }

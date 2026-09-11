@@ -43,6 +43,11 @@ Checked items are implemented and verified on device.
 - [x] Per-user record of caller/callee, type, direction, time, duration, status
 - [x] Missed call indicator
 
+**Bonus features**
+- [x] Network quality indicator (Good / Fair / Poor) on both call screens
+- [ ] Block user: blocked people disappear from contacts, Home and history, and their calls never ring (the caller just sees "No answer"). Unblock from Profile
+- [ ] Frequently called contacts on Home, ranked from call history
+
 **Cross-cutting**
 - [x] Light and dark themes
 - [ ] Runtime permission handling (granted, denied, permanently denied)
@@ -150,11 +155,12 @@ users/{uid}                    profile, isOnline, lastSeen
 calls/{callId}                 live signaling node, watched by both peers
 user_calls/{uid}               pointer to the user's active call, if any
 call_history/{uid}/{callId}    per-user immutable record
+blocks/{uid}/{blockedUid}      private block list, true per blocked user
 ```
 
 Access is enforced server-side by `database.rules.json`: users can only write
 their own profile, a call is readable only by its two participants, and each
-user's history is readable only by that user.
+user's history and block list are readable only by that user.
 
 ### Token server
 

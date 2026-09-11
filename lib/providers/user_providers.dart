@@ -4,6 +4,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/user_model.dart';
+import '../services/block_service.dart';
 import '../services/presence_service.dart';
 import '../services/user_service.dart';
 import 'auth_providers.dart';
@@ -54,7 +55,7 @@ final searchQueryProvider =
 /// scale it avoids a second round trip and keeps results instant while typing.
 final filteredUsersProvider = Provider<AsyncValue<List<UserModel>>>((ref) {
   final query = ref.watch(searchQueryProvider);
-  return ref.watch(usersProvider).whenData(
+  return ref.watch(visibleUsersProvider).whenData(
         (users) => users.where((u) => u.matches(query)).toList(),
       );
 });
@@ -110,4 +111,32 @@ final presenceControllerProvider = Provider<PresenceController>((ref) {
   final controller = PresenceController(ref);
   ref.onDispose(controller.dispose);
   return controller;
+});
+
+// --- blocking (bonus 4) -------------------------------------------------------
+
+final blockServiceProvider = Provider<BlockService>((ref) => BlockService());
+
+/// Uids the signed-in user has blocked, kept live.
+final blockedIdsProvider = StreamProvider<Set<String>>((ref) {
+  final uid = ref.watch(currentUidProvider);
+  if (uid == null) return Stream.value(const <String>{});
+  return ref.watch(blockServiceProvider).watchBlocked(uid);
+});
+
+/// The directory as this user should see it: everyone except themselves and
+/// anyone they have blocked. Every list in the app reads this, not
+/// [usersProvider], so a block takes effect everywhere at once.
+final visibleUsersProvider = Provider<AsyncValue<List<UserModel>>>((ref) {
+  final blocked = ref.watch(blockedIdsProvider).value ?? const <String>{};
+  return ref
+      .watch(usersProvider)
+      .whenData((users) => withoutBlocked(users, blocked));
+});
+
+/// Profiles of blocked users, for the Blocked contacts screen.
+final blockedUsersProvider = Provider<List<UserModel>>((ref) {
+  final blocked = ref.watch(blockedIdsProvider).value ?? const <String>{};
+  final users = ref.watch(usersProvider).value ?? const <UserModel>[];
+  return users.where((user) => blocked.contains(user.uid)).toList();
 });

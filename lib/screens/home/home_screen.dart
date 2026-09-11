@@ -12,6 +12,7 @@ import '../../providers/auth_providers.dart';
 import '../../providers/history_providers.dart';
 import '../../providers/user_providers.dart';
 import '../../widgets/call_launcher.dart';
+import '../../widgets/contact_actions_sheet.dart';
 import '../../widgets/history_tile.dart';
 import '../../widgets/state_views.dart';
 import '../../widgets/user_avatar.dart';
@@ -19,10 +20,10 @@ import '../../widgets/user_tile.dart';
 
 /// Screen 3: profile header, search, contacts and recent calls.
 ///
-/// A summary rather than a second copy of Contacts: it shows who is online
-/// and the first few contacts, with "See all" handing off to the full list.
-/// The search box shares its query with Contacts, so switching tabs mid-search
-/// keeps the results.
+/// A summary rather than a second copy of Contacts: it shows who is online,
+/// who you call most, and the first few contacts, with "See all" handing off
+/// to the full list. The search box shares its query with Contacts, so
+/// switching tabs mid-search keeps the results.
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
@@ -66,9 +67,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final me = ref.watch(currentUserProvider).value;
-    final usersAsync = ref.watch(usersProvider);
+    final usersAsync = ref.watch(visibleUsersProvider);
     final filtered = ref.watch(filteredUsersProvider).value ?? const [];
     final query = ref.watch(searchQueryProvider);
+    final frequentIds = ref.watch(frequentContactIdsProvider);
     final recent =
         ref.watch(recentCallsProvider).value ?? const <CallHistoryEntry>[];
 
@@ -127,6 +129,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   all: all,
                   filtered: filtered,
                   query: query,
+                  frequentIds: frequentIds,
                 ),
               ),
 
@@ -172,6 +175,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     required List<UserModel> all,
     required List<UserModel> filtered,
     required String query,
+    required List<String> frequentIds,
   }) {
     final theme = Theme.of(context);
 
@@ -194,29 +198,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ];
     }
 
+    final byId = {for (final user in all) user.uid: user};
     final online = all.where((u) => u.isOnline).toList();
+    // Ranked by the history provider; mapped onto live profiles so presence
+    // dots are current, and blocked users (absent from [all]) drop out.
+    final frequent = [
+      for (final id in frequentIds)
+        if (byId[id] != null) byId[id]!,
+    ];
     final preview = filtered.take(_previewCount).toList();
 
     return [
-      // "Online now" only makes sense when browsing, not mid-search.
-      if (query.isEmpty && online.isNotEmpty) ...[
-        SliverToBoxAdapter(
-          child: _SectionHeader(title: 'Online now', theme: theme),
-        ),
-        SliverToBoxAdapter(
-          child: SizedBox(
-            height: 96,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: online.length,
-              separatorBuilder: (_, index) => const SizedBox(width: 14),
-              itemBuilder: (context, index) =>
-                  _OnlineChip(user: online[index]),
-            ),
-          ),
-        ),
-      ],
+      // Browsing strips only make sense when not searching.
+      if (query.isEmpty && frequent.isNotEmpty)
+        ..._chipStrip(context, 'Frequently called', frequent, theme),
+      if (query.isEmpty && online.isNotEmpty)
+        ..._chipStrip(context, 'Online now', online, theme),
 
       SliverToBoxAdapter(
         child: _SectionHeader(
@@ -256,9 +253,37 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 callee: user,
                 type: type,
               ),
+              onTap: () => showContactActions(context, ref, user),
             );
           },
         ),
+    ];
+  }
+
+  /// A titled horizontal strip of tappable avatars.
+  List<Widget> _chipStrip(
+    BuildContext context,
+    String title,
+    List<UserModel> users,
+    ThemeData theme,
+  ) {
+    return [
+      SliverToBoxAdapter(child: _SectionHeader(title: title, theme: theme)),
+      SliverToBoxAdapter(
+        child: SizedBox(
+          height: 96,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: users.length,
+            separatorBuilder: (_, index) => const SizedBox(width: 14),
+            itemBuilder: (context, index) => _AvatarChip(
+              user: users[index],
+              onTap: () => showContactActions(context, ref, users[index]),
+            ),
+          ),
+        ),
+      ),
     ];
   }
 }
@@ -333,28 +358,38 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
-class _OnlineChip extends StatelessWidget {
-  const _OnlineChip({required this.user});
+class _AvatarChip extends StatelessWidget {
+  const _AvatarChip({required this.user, required this.onTap});
 
   final UserModel user;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return SizedBox(
-      width: 64,
-      child: Column(
-        children: [
-          UserAvatar(user: user, radius: 28, showPresence: true),
-          const SizedBox(height: 6),
-          Text(
-            user.name.split(' ').first,
-            style: theme.textTheme.labelSmall,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
+    return Semantics(
+      button: true,
+      label: user.name,
+      excludeSemantics: true,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: SizedBox(
+          width: 64,
+          child: Column(
+            children: [
+              UserAvatar(user: user, radius: 28, showPresence: true),
+              const SizedBox(height: 6),
+              Text(
+                user.name.split(' ').first,
+                style: theme.textTheme.labelSmall,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

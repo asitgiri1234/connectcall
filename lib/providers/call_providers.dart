@@ -13,6 +13,7 @@ import '../services/permission_service.dart';
 import '../services/signaling_service.dart';
 import 'auth_providers.dart';
 import 'history_providers.dart';
+import 'user_providers.dart';
 
 // --- service providers -------------------------------------------------------
 //
@@ -554,6 +555,10 @@ final incomingCallListenerProvider = Provider<void>((ref) {
   final uid = ref.watch(currentUidProvider);
   if (uid == null) return;
 
+  // Watched rather than read once: a one-off read at startup can land before
+  // the block list has loaded and let a blocked caller ring.
+  final blocked = ref.watch(blockedIdsProvider).value ?? const <String>{};
+
   final sub = ref.read(signalingServiceProvider).watchIncoming(uid).listen(
     (call) {
       if (call == null) return;
@@ -562,6 +567,10 @@ final incomingCallListenerProvider = Provider<void>((ref) {
       // sees their own outgoing call here. Only calls *to* us ring.
       if (call.receiverId != uid) return;
       if (call.status != CallStatus.calling) return;
+
+      // A blocked caller's call never rings here. Their phone rings out and
+      // they see 'No answer', so the block is not revealed to them.
+      if (blocked.contains(call.callerId)) return;
 
       // A call node left behind by a caller that crashed before its ring
       // timeout could fire would otherwise ring forever on the next launch.

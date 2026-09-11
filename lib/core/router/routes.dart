@@ -18,6 +18,9 @@ class Routes {
   /// video views by reading the call controller.
   static const String call = '/call';
 
+  /// Blocked contacts, pushed from Profile.
+  static const String blockedUsers = '/blocked';
+
   /// Tabs in bottom-navigation order. The index of a path here is its
   /// branch index in the shell route.
   static const List<String> shellTabs = [home, contacts, history, profile];

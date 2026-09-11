@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/call_history_entry.dart';
 import '../services/call_history_service.dart';
 import 'auth_providers.dart';
+import 'user_providers.dart';
 
 final callHistoryServiceProvider =
     Provider<CallHistoryService>((ref) => CallHistoryService());
@@ -12,7 +13,15 @@ final callHistoryServiceProvider =
 final callHistoryProvider = StreamProvider<List<CallHistoryEntry>>((ref) {
   final uid = ref.watch(currentUidProvider);
   if (uid == null) return Stream.value(const <CallHistoryEntry>[]);
-  return ref.watch(callHistoryServiceProvider).watchHistory(uid);
+
+  // Calls with people you have blocked are hidden, not deleted: unblocking
+  // brings them back.
+  final blocked = ref.watch(blockedIdsProvider).value ?? const <String>{};
+  return ref.watch(callHistoryServiceProvider).watchHistory(uid).map(
+        (all) => blocked.isEmpty
+            ? all
+            : all.where((entry) => !blocked.contains(entry.peerId)).toList(),
+      );
 });
 
 /// The few most recent calls, for the Home screen.

@@ -73,6 +73,18 @@
       }
     },
 
+    "blocks": {
+      "$uid": {
+        // Your block list is private to you: nobody else can read who you
+        // have blocked, or edit it.
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid",
+        "$blockedUid": {
+          ".validate": "newData.val() === true || newData.val() === null"
+        }
+      }
+    },
+
     "call_history": {
       "$uid": {
         // Your history is yours alone to read.

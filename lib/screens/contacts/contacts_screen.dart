@@ -8,6 +8,7 @@ import '../../models/call_model.dart';
 import '../../models/user_model.dart';
 import '../../providers/user_providers.dart';
 import '../../widgets/call_launcher.dart';
+import '../../widgets/contact_actions_sheet.dart';
 import '../../widgets/state_views.dart';
 import '../../widgets/user_tile.dart';
 
@@ -53,7 +54,7 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final usersAsync = ref.watch(usersProvider);
+    final usersAsync = ref.watch(visibleUsersProvider);
     final filtered = ref.watch(filteredUsersProvider);
     final query = ref.watch(searchQueryProvider);
 
@@ -122,6 +123,7 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
                     return UserTile(
                       user: user,
                       onCall: (type) => _startCall(user, type),
+                      onTap: () => showContactActions(context, ref, user),
                     );
                   },
                 );

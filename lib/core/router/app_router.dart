@@ -11,6 +11,7 @@ import '../../screens/call/call_screen.dart';
 import '../../screens/contacts/contacts_screen.dart';
 import '../../screens/history/history_screen.dart';
 import '../../screens/home/home_screen.dart';
+import '../../screens/profile/blocked_users_screen.dart';
 import '../../screens/profile/profile_screen.dart';
 import '../../screens/splash/splash_screen.dart';
 import '../../widgets/app_scaffold.dart';
@@ -94,6 +95,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: Routes.call,
         builder: (context, state) => const CallScreen(),
+      ),
+      GoRoute(
+        path: Routes.blockedUsers,
+        builder: (context, state) => const BlockedUsersScreen(),
       ),
 
       // The four tabs live in a stateful shell so each keeps its own stack.
