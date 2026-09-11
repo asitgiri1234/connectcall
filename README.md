@@ -351,6 +351,20 @@ the APK. The App Certificate is never given to the app.
 
 ---
 
+## Running the tests
+
+```bash
+flutter test
+```
+
+Unit tests in `test/` cover the logic that would otherwise fail silently as
+wrong data on screen: call-status rules (which states are terminal, and that an
+unknown status degrades to `failed`), call-history pairing (mirrored entries for
+both participants, talk time measured from connection rather than from placing
+the call, side-aware "Missed" vs "No answer", and only the keys the database
+rules allow), day grouping, defensive parsing of malformed user records,
+formatters and form validators.
+
 ## Testing a call
 
 A 1-to-1 call needs two devices. Register two accounts, sign in to one on each
