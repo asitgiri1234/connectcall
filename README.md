@@ -29,7 +29,7 @@ Checked items are implemented and verified on device.
 **Calling**
 - [ ] 1-to-1 audio call
 - [ ] 1-to-1 video call
-- [ ] Incoming call screen with accept / reject
+- [x] Incoming call screen with accept / reject
 - [ ] End call from either side
 - [ ] Call state handling: calling, ringing, connected, ended, rejected, missed, busy, failed, disconnected
 
@@ -40,8 +40,8 @@ Checked items are implemented and verified on device.
 - [ ] Switch front / rear camera
 
 **Call history**
-- [ ] Per-user record of caller/callee, type, direction, time, duration, status
-- [ ] Missed call indicator
+- [x] Per-user record of caller/callee, type, direction, time, duration, status
+- [x] Missed call indicator
 
 **Cross-cutting**
 - [x] Light and dark themes
