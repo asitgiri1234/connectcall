@@ -19,10 +19,10 @@ Checked items are implemented and verified on device.
 - [x] Registration (name, email, password, confirm password)
 - [ ] Login (email + password)
 - [ ] Logout
-- [ ] Session persistence across app restarts
+- [x] Session persistence across app restarts
 
 **Users**
-- [ ] User list with avatar, name and live online/offline status
+- [x] User list with avatar, name and live online/offline status
 - [ ] Search users
 - [ ] View and edit own profile
 
