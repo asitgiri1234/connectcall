@@ -212,8 +212,15 @@ microphone loopback is unreliable — two physical devices give a truer result.
 
 _Tracked as the project progresses._
 
-- Agora runs in testing mode (App ID only, no token authentication). Production
-  use requires a token server.
+- **Agora runs in testing mode** (App ID only, no token authentication). The
+  App ID is compiled into the APK, so anyone holding the APK could extract it
+  and join channels on this project's quota. Production use needs secured mode,
+  where a server holding the App Certificate mints a short-lived token per
+  channel, ideally only after verifying the requester is a participant in that
+  call. The app already requests tokens through a single `AgoraTokenProvider`
+  interface, so that upgrade adds one server-backed implementation and changes
+  no call code. Tokens are deliberately never generated on the device, since
+  that would ship the certificate inside the APK.
 
 ---
 
