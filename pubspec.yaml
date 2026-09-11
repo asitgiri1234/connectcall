@@ -45,6 +45,8 @@ dependencies:
   connectivity_plus: ^7.3.1
   http: ^1.6.0
   flutter_ringtone_player: ^4.0.0+4
+  firebase_messaging: ^16.6.0
+  flutter_callkit_incoming: ^3.1.5
 
 dev_dependencies:
   flutter_test:

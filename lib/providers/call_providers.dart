@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter_callkit_incoming/entities/entities.dart';
+import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/constants/app_constants.dart';
@@ -9,10 +11,12 @@ import '../models/call_model.dart';
 import '../models/user_model.dart';
 import '../services/agora_service.dart';
 import '../services/agora_token_provider.dart';
+import '../services/incoming_call_ui.dart';
 import '../services/permission_service.dart';
 import '../services/signaling_service.dart';
 import 'auth_providers.dart';
 import 'history_providers.dart';
+import 'push_providers.dart';
 import 'user_providers.dart';
 
 // --- service providers -------------------------------------------------------
@@ -231,6 +235,10 @@ class CallController extends Notifier<ActiveCall?> {
           .timeout(_networkTimeout);
       _begin(call, isCaller: true);
 
+      // Wake the callee's phone too, in case their app is closed. Best-effort:
+      // if it fails, the call still rings in-app whenever their app is open.
+      unawaited(ref.read(callNotifierProvider).ring(call.callId));
+
       // The caller owns the ring timeout. If nobody answers in time, the call
       // becomes "missed" for both sides through the shared node.
       _ringTimer = Timer(AppConstants.ringTimeout, () {
@@ -263,6 +271,13 @@ class CallController extends Notifier<ActiveCall?> {
 
     _begin(call, isCaller: false);
     _log('incoming from ${call.callerName}');
+
+    // Already accepted on Android's native incoming-call screen, which is what
+    // launched the app: answer it rather than ringing it a second time.
+    if (ref.read(pendingNativeAcceptProvider.notifier).consume(call.callId)) {
+      _log('answering: accepted on the native incoming-call screen');
+      unawaited(accept());
+    }
     // Tells the caller's screen to move from "Calling..." to "Ringing...":
     // the call has actually reached this device.
     unawaited(_signaling.markRinging(call.callId));
@@ -505,6 +520,14 @@ class CallController extends Notifier<ActiveCall?> {
   /// show why the call ended before it closes.
   void _finish(CallModel call) {
     _ringTimer?.cancel();
+    final wasCaller = state?.isCaller ?? false;
+
+    // Close the native incoming-call screen if it is up, and if we rang
+    // someone who never answered, stop their phone ringing.
+    unawaited(IncomingCallUi.dismiss(call.callId));
+    if (wasCaller && call.connectedAt == null) {
+      unawaited(ref.read(callNotifierProvider).cancel(call.callId));
+    }
     _log('finished: ${call.status.name}');
     state = state?.copyWith(call: call);
 
@@ -588,4 +611,49 @@ final incomingCallListenerProvider = Provider<void>((ref) {
     },
   );
   ref.onDispose(sub.cancel);
+});
+
+/// Reacts to Accept and Decline on Android's native incoming-call screen,
+/// shown when a call arrives by push while the app is in the background.
+///
+/// Accept launches the app. If the in-app flow already has that call ringing,
+/// it is answered now; otherwise its id is held until the app's own listener
+/// delivers it (see [PendingNativeAccept]). Watched from the app root.
+final nativeCallEventsProvider = Provider<void>((ref) {
+  void acceptOrHold(String callId) {
+    final current = ref.read(callControllerProvider);
+    if (current != null &&
+        current.call.callId == callId &&
+        current.isIncomingRinging) {
+      unawaited(ref.read(callControllerProvider.notifier).accept());
+    } else {
+      ref.read(pendingNativeAcceptProvider.notifier).set(callId);
+    }
+  }
+
+  final sub = FlutterCallkitIncoming.onEvent.listen((event) {
+    switch (event) {
+      case CallEventActionCallAccept(:final callKitParams):
+        acceptOrHold(callKitParams.id);
+      case CallEventActionCallDecline(:final callKitParams):
+        final current = ref.read(callControllerProvider);
+        if (current != null && current.call.callId == callKitParams.id) {
+          unawaited(ref.read(callControllerProvider.notifier).decline());
+        } else {
+          unawaited(
+              ref.read(signalingServiceProvider).rejectCall(callKitParams.id));
+        }
+      default:
+        break;
+    }
+  });
+  ref.onDispose(sub.cancel);
+
+  // A call accepted while the app was fully closed: the app was launched by
+  // that tap, possibly before this listener existed to hear it.
+  FlutterCallkitIncoming.activeCalls().then((calls) {
+    for (final call in calls) {
+      if (call.isAccepted) acceptOrHold(call.id);
+    }
+  }).catchError((Object _) {});
 });

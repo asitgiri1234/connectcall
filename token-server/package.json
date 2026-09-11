@@ -5,10 +5,11 @@
   "description": "Mints Agora RTC tokens for ConnectCall, only for verified participants of a call.",
   "type": "module",
   "engines": {
-    "node": ">=20"
+    "node": "24.x"
   },
   "dependencies": {
     "agora-token": "^2.0.6",
+    "firebase-admin": "^14.4.0",
     "jose": "^6.2.12"
   }
 }

@@ -47,6 +47,7 @@ Checked items are implemented and verified on device.
 - [x] Network quality indicator (Good / Fair / Poor) on both call screens
 - [ ] Block user: blocked people disappear from contacts, Home and history, and their calls never ring (the caller just sees "No answer"). Unblock from Profile
 - [ ] Frequently called contacts on Home, ranked from call history
+- [ ] Incoming calls ring when the app is in the background or closed (push notification + Android full-screen incoming-call screen)
 
 **Cross-cutting**
 - [x] Light and dark themes
@@ -138,7 +139,9 @@ lib/
 └── main.dart
 
 token-server/
-└── api/token.js       Vercel serverless function issuing Agora tokens
+├── api/token.js       issues Agora tokens to a call's participants
+├── api/notify.js      pushes incoming calls to the callee's phone
+└── lib/shared.js      sign-in and call-membership checks both endpoints share
 
 database.rules.json    Realtime Database security rules
 ```
@@ -183,6 +186,28 @@ have already ended.
 
 In the app, all call code goes through a single `AgoraTokenProvider` interface,
 so the token host can change without touching the call flow.
+
+### Push notifications
+
+A call rings even when the callee's app is in the background or closed.
+
+1. Each signed-in device stores its Firebase Cloud Messaging token at
+   `fcm_tokens/{uid}`, readable and writable only by its owner.
+2. After placing a call, the caller's app calls `POST /api/notify` with
+   `{ callId, event: "ring" }`. The server verifies the requester exactly
+   as `/api/token` does, and additionally that they are the call's
+   **caller**, so nobody can ring someone for a call that does not exist.
+3. The server reads the callee's token with the Firebase Admin SDK (the only
+   reason it needs a service account) and sends a high-priority, data-only
+   message with a 45-second time-to-live, matching the ring timeout.
+4. On the callee's phone, a background handler shows Android's native
+   full-screen incoming-call screen. **Accept** opens the app, which answers
+   that call automatically once it has loaded. If the caller hangs up first,
+   an `event: "cancel"` push dismisses the screen.
+
+While the app is open, pushes are ignored and the in-app incoming screen is
+used, so a call never rings twice. Push is best-effort throughout: if it
+fails, the call still rings in-app whenever the callee has the app open.
 
 ### How a call is established
 
@@ -314,6 +339,7 @@ vercel env add AGORA_APP_ID production
 vercel env add AGORA_APP_CERTIFICATE production
 vercel env add FIREBASE_PROJECT_ID production
 vercel env add FIREBASE_DATABASE_URL production
+vercel env add FIREBASE_SERVICE_ACCOUNT production < service-account.json
 vercel deploy --prod
 ```
 
@@ -323,6 +349,7 @@ vercel deploy --prod
 | `AGORA_APP_CERTIFICATE` | Agora primary certificate — a secret, server-side only |
 | `FIREBASE_PROJECT_ID` | Firebase project id |
 | `FIREBASE_DATABASE_URL` | Realtime Database URL, including the region host |
+| `FIREBASE_SERVICE_ACCOUNT` | Firebase service-account JSON (Project settings → Service accounts → Generate new private key). A full admin credential: server-side only, never committed. Used by `/api/notify` |
 
 ### 3. App configuration
 
@@ -383,6 +410,12 @@ microphone loopback is unreliable — two physical devices give a truer result.
 
 _Tracked as the project progresses._
 
+- Declining a call from Android's native incoming-call screen while the app
+  is fully closed cannot reach the database, so the caller's phone keeps
+  ringing until the 45-second timeout and records "No answer".
+- Release signing uses a keystore kept out of the repository
+  (`android/key.properties` and `android/app/upload-keystore.jks` are
+  gitignored). A fresh clone falls back to the debug key, so it still builds.
 - The token server runs on Vercel's free tier, so the first call after a period
   of inactivity may take a moment longer while the function cold-starts.
 - Agora tokens are issued for one hour. Renewal for calls longer than that is

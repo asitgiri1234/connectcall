@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/utils/app_exception.dart';
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
+import 'push_providers.dart';
 
 /// The service instance. Overriding this in a ProviderScope is how tests
 /// swap in a fake without touching any widget.
@@ -72,7 +73,13 @@ class AuthController extends AsyncNotifier<void> {
     );
   }
 
-  Future<bool> logout() => _run(_service.logout);
+  Future<bool> logout() => _run(() async {
+        // Before signing out: the rules only let the owner delete their
+        // push token, and a signed-out phone must stop receiving calls.
+        final uid = _service.uid;
+        if (uid != null) await ref.read(pushServiceProvider).unregister(uid);
+        await _service.logout();
+      });
 
   Future<bool> _run(Future<void> Function() action) async {
     state = const AsyncValue.loading();

@@ -193,8 +193,12 @@ A valid call goes to `CallController.presentIncoming`, which writes `ringing`.
 The root listener then opens `IncomingCallView`. If the user is already on a
 call, the new call is marked **`busy`** instead.
 
-Current limit: this works while the app is open. Background delivery needs
-push notifications (see "How would you scale").
+When the app is closed or in the background, the caller's app asks the
+server's `/api/notify` to push the call. A background handler shows Android's
+native full-screen incoming-call screen, and Accept opens the app, which
+answers that call automatically once it loads. The in-app listener still
+handles every call while the app is open, so push is a best-effort addition,
+not a dependency.
 
 ### 4. How do you detect when a call ends?
 
@@ -286,9 +290,10 @@ redirect and the call listener), never by a screen deciding on its own.
 
 ### 4. How would you scale this application?
 
-- **Background incoming calls:** add FCM data messages, triggered when a call
-  node is created, plus a full-screen notification or CallKit/ConnectionService.
-  Today a callee must have the app open.
+- **Push delivery:** today the caller's app triggers the push. Moving that to
+  a database trigger (a Cloud Function on call creation) would ring the callee
+  even if the caller's app dies mid-request, and would let the server own the
+  ring timeout.
 - **Server-side call timeouts:** the ring timeout currently runs on the
   caller's device. A Cloud Function or scheduled job would mark calls missed
   even if the caller's app dies (the `onDisconnect` already covers the crash

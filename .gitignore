@@ -60,3 +60,9 @@ Thumbs.db
 # ---- iOS ----
 
 # ---- OS ----
+
+# ---- Firebase service account (admin credential for the push server) ----
+*-firebase-adminsdk-*.json
+*firebase-adminsdk*.json
+service-account*.json
+serviceAccount*.json

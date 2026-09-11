@@ -1,4 +1,5 @@
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_ringtone_player/flutter_ringtone_player.dart';
@@ -9,7 +10,9 @@ import 'core/router/routes.dart';
 import 'core/theme/app_theme.dart';
 import 'firebase_options.dart';
 import 'providers/call_providers.dart';
+import 'providers/push_providers.dart';
 import 'providers/user_providers.dart';
+import 'services/incoming_call_ui.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -23,6 +26,11 @@ Future<void> main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  // Runs in its own isolate for a call pushed while the app is in the
+  // background or closed, and shows Android's full-screen incoming-call
+  // screen. Registered before runApp, as the plugin requires.
+  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
   runApp(const ProviderScope(child: ConnectCallApp()));
 }
@@ -43,6 +51,10 @@ class ConnectCallApp extends ConsumerWidget {
     //  - incoming calls: must be listening wherever the user is in the app
     ref.watch(presenceControllerProvider);
     ref.watch(incomingCallListenerProvider);
+    //  - push: registers this device so calls ring even when the app is
+    //    closed, and reacts to Accept / Decline on the native call screen
+    ref.watch(pushRegistrationProvider);
+    ref.watch(nativeCallEventsProvider);
 
     // The call screen follows the call. It opens when a call starts or
     // arrives and closes when the controller clears a finished one. Screens

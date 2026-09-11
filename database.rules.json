@@ -73,6 +73,17 @@
       }
     },
 
+    "fcm_tokens": {
+      "$uid": {
+        // A device push token, private to its owner. The push server reads
+        // the callee's token with the Admin SDK, which bypasses these rules;
+        // no other user can read it or overwrite it with their own device.
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid",
+        ".validate": "newData.isString() || newData.val() === null"
+      }
+    },
+
     "blocks": {
       "$uid": {
         // Your block list is private to you: nobody else can read who you
