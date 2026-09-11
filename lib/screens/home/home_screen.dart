@@ -6,10 +6,13 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/router/routes.dart';
+import '../../models/call_history_entry.dart';
 import '../../models/user_model.dart';
 import '../../providers/auth_providers.dart';
+import '../../providers/history_providers.dart';
 import '../../providers/user_providers.dart';
 import '../../widgets/call_launcher.dart';
+import '../../widgets/history_tile.dart';
 import '../../widgets/state_views.dart';
 import '../../widgets/user_avatar.dart';
 import '../../widgets/user_tile.dart';
@@ -66,11 +69,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final usersAsync = ref.watch(usersProvider);
     final filtered = ref.watch(filteredUsersProvider).value ?? const [];
     final query = ref.watch(searchQueryProvider);
+    final recent =
+        ref.watch(recentCallsProvider).value ?? const <CallHistoryEntry>[];
 
     return Scaffold(
       body: SafeArea(
         child: RefreshIndicator(
-          onRefresh: () async => ref.invalidate(usersProvider),
+          onRefresh: () async {
+            ref.invalidate(usersProvider);
+            ref.invalidate(callHistoryProvider);
+          },
           child: CustomScrollView(
             slivers: [
               SliverToBoxAdapter(child: _Header(me: me)),
@@ -123,16 +131,35 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
 
               SliverToBoxAdapter(
-                child: _SectionHeader(title: 'Recent calls', theme: theme),
-              ),
-              // Filled from call history in Phase 8. Until then, an honest
-              // empty state rather than fake entries.
-              const SliverToBoxAdapter(
-                child: Padding(
-                  padding: EdgeInsets.fromLTRB(16, 0, 16, 24),
-                  child: _RecentCallsPlaceholder(),
+                child: _SectionHeader(
+                  title: 'Recent calls',
+                  theme: theme,
+                  action: recent.isEmpty
+                      ? null
+                      : TextButton(
+                          onPressed: () => context.go(Routes.history),
+                          child: const Text('See all'),
+                        ),
                 ),
               ),
+              if (recent.isEmpty)
+                const SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(16, 0, 16, 24),
+                    child: _RecentCallsPlaceholder(),
+                  ),
+                )
+              else
+                SliverList.list(
+                  children: [
+                    for (final entry in recent)
+                      HistoryTile(
+                        entry: entry,
+                        onCallBack: () => callBack(context, ref, entry),
+                      ),
+                    const SizedBox(height: 24),
+                  ],
+                ),
             ],
           ),
         ),

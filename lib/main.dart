@@ -1,6 +1,7 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_ringtone_player/flutter_ringtone_player.dart';
 
 import 'core/constants/app_constants.dart';
 import 'core/router/app_router.dart';
@@ -63,6 +64,23 @@ class ConnectCallApp extends ConsumerWidget {
         router.pop();
       }
     });
+
+    // Ring while an incoming call is waiting on this device, and stop the
+    // moment that stops being true: answered, declined, cancelled by the
+    // caller, or missed. Driven from the controller state in one place rather
+    // than by the incoming screen, so no exit path can leave the phone ringing
+    // after the call has gone.
+    ref.listen<bool>(
+      callControllerProvider.select((call) => call?.isIncomingRinging ?? false),
+      (previous, ringing) {
+        final player = FlutterRingtonePlayer();
+        if (ringing) {
+          player.playRingtone(looping: true);
+        } else {
+          player.stop();
+        }
+      },
+    );
 
     return MaterialApp.router(
       title: AppConstants.appName,

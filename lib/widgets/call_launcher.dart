@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/theme/app_colors.dart';
+import '../models/call_history_entry.dart';
 import '../models/call_model.dart';
 import '../models/user_model.dart';
 import '../providers/auth_providers.dart';
 import '../providers/call_providers.dart';
 import '../providers/connectivity_providers.dart';
+import '../providers/user_providers.dart';
 import '../services/permission_service.dart';
 
 /// The one entry point every call button in the app goes through.
@@ -86,6 +88,31 @@ Future<void> launchCall(
     case CallCouldNotStart(:final error):
       messenger.showSnackBar(SnackBar(content: Text(error.message)));
   }
+}
+
+/// Calls back the other person in a history entry, with the same call type.
+///
+/// Uses their *live* profile when it is loaded, so the offline warning in
+/// [launchCall] reflects whether they are online now rather than whatever was
+/// true when the call was recorded.
+Future<void> callBack(
+  BuildContext context,
+  WidgetRef ref,
+  CallHistoryEntry entry,
+) {
+  final live = ref
+      .read(usersProvider)
+      .value
+      ?.where((user) => user.uid == entry.peerId)
+      .firstOrNull;
+  final callee = live ??
+      UserModel(
+        uid: entry.peerId,
+        name: entry.peerName,
+        email: '',
+        photoUrl: entry.peerPhotoUrl,
+      );
+  return launchCall(context, ref, callee: callee, type: entry.type);
 }
 
 /// Explains a refused permission, with the right way forward for each case.

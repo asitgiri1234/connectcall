@@ -11,6 +11,7 @@ import '../services/agora_token_provider.dart';
 import '../services/permission_service.dart';
 import '../services/signaling_service.dart';
 import 'auth_providers.dart';
+import 'history_providers.dart';
 
 // --- service providers -------------------------------------------------------
 //
@@ -491,6 +492,10 @@ class CallController extends Notifier<ActiveCall?> {
     _callSub = null;
     unawaited(_signaling.releaseCall(call.callId));
     unawaited(_releaseMedia());
+
+    // Recorded for both participants from whichever device sees the end, so
+    // a callee whose phone was offline still gets their missed call.
+    unawaited(ref.read(callHistoryServiceProvider).recordCall(call));
 
     _clearTimer?.cancel();
     _clearTimer = Timer(const Duration(seconds: 2), () {

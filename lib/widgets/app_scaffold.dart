@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../core/router/routes.dart';
+import 'connection_banner.dart';
 
 /// The persistent bottom-navigation shell wrapping the four main tabs.
 ///
@@ -46,10 +47,18 @@ class AppScaffold extends StatelessWidget {
     assert(_destinations.length == Routes.shellTabs.length);
     return Scaffold(
       body: shell,
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: shell.currentIndex,
-        onDestinationSelected: _onTap,
-        destinations: _destinations,
+      // The offline banner sits just above the tabs rather than at the top,
+      // so it never fights each screen's app bar for the status-bar area.
+      bottomNavigationBar: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const ConnectionBanner(),
+          NavigationBar(
+            selectedIndex: shell.currentIndex,
+            onDestinationSelected: _onTap,
+            destinations: _destinations,
+          ),
+        ],
       ),
     );
   }

@@ -7,6 +7,7 @@ import '../../core/constants/app_constants.dart';
 import '../../models/call_model.dart';
 import '../../models/user_model.dart';
 import '../../providers/user_providers.dart';
+import '../../widgets/call_launcher.dart';
 import '../../widgets/state_views.dart';
 import '../../widgets/user_tile.dart';
 
@@ -47,13 +48,7 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
   }
 
   void _startCall(UserModel user, CallType type) {
-    // Wired up in Phase 3, once the signaling layer exists.
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('${type.label} to ${user.name} — coming in Phase 3'),
-        duration: const Duration(seconds: 2),
-      ),
-    );
+    launchCall(context, ref, callee: user, type: type);
   }
 
   @override

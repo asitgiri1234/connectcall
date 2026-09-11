@@ -44,6 +44,7 @@ dependencies:
   intl: ^0.20.3
   connectivity_plus: ^7.3.1
   http: ^1.6.0
+  flutter_ringtone_player: ^4.0.0+4
 
 dev_dependencies:
   flutter_test:
