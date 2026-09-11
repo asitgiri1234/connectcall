@@ -174,6 +174,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                               : Icons.visibility_off_outlined),
                           onPressed: () => setState(
                               () => _obscureConfirm = !_obscureConfirm),
+                          tooltip: _obscureConfirm
+                              ? 'Show password'
+                              : 'Hide password',
                         ),
                       ),
                       validator: (value) => Validators.confirmPassword(

@@ -6,6 +6,8 @@ import 'core/constants/app_constants.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'firebase_options.dart';
+import 'providers/call_providers.dart';
+import 'providers/user_providers.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -29,6 +31,16 @@ class ConnectCallApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
+
+    // Session-wide background work, started at the root so it runs for as
+    // long as someone is signed in, regardless of which screen is showing.
+    // Both react to the signed-in uid on their own, starting on login and
+    // stopping on logout.
+    //  - presence: arms the server-side onDisconnect that marks the user
+    //    offline even if the app is killed or loses signal
+    //  - incoming calls: must be listening wherever the user is in the app
+    ref.watch(presenceControllerProvider);
+    ref.watch(incomingCallListenerProvider);
 
     return MaterialApp.router(
       title: AppConstants.appName,

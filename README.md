@@ -16,7 +16,7 @@ signaling and call history, and a small token server that authorises each call.
 Checked items are implemented and verified on device.
 
 **Authentication**
-- [ ] Registration (name, email, password, confirm password)
+- [x] Registration (name, email, password, confirm password)
 - [ ] Login (email + password)
 - [ ] Logout
 - [ ] Session persistence across app restarts
