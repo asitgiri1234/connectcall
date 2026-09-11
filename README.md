@@ -180,7 +180,87 @@ so the token host can change without touching the call flow.
 
 ### How a call is established
 
-_To be documented once the call flow lands._
+Agora carries audio and video once two devices are in the same channel, but it
+has no concept of "ringing" someone. That signaling is built on the Realtime
+Database: one shared node per call, `calls/{callId}`, which **both** devices
+watch. Every state change is written by one side and observed by the other,
+so behaviours like "the caller cancels and the callee's ringing screen closes"
+need no special handling.
+
+```mermaid
+sequenceDiagram
+    participant A as Caller app
+    participant DB as Realtime Database
+    participant B as Callee app
+    participant T as Token server
+    participant AG as Agora
+
+    A->>DB: read user_calls/{callee}  (busy?)
+    A->>DB: write calls/{id} status=calling, channel=call_{id}
+    A->>DB: write user_calls/{caller} and user_calls/{callee} = id
+    A->>DB: onDisconnect: status=disconnected
+    DB-->>B: user_calls/{callee} changed
+    B->>DB: status=ringing
+    DB-->>A: "Ringing..."
+    B->>DB: onDisconnect: status=disconnected
+    B->>DB: status=connected, connectedAt
+    DB-->>A: connected
+    par both devices
+        A->>T: POST /api/token (Firebase ID token, callId)
+        T->>DB: read calls/{id} with the caller's own token
+        T-->>A: Agora token, uid, channel
+        A->>AG: join channel
+    and
+        B->>T: POST /api/token
+        T-->>B: Agora token, uid, channel
+        B->>AG: join channel
+    end
+    AG-->>A: remote user joined
+    A->>DB: status=inCall (duration starts)
+    A->>DB: status=ended, endedAt, clear both pointers
+    DB-->>B: ended
+    Note over A,B: both leave Agora, release the engine, record history for both
+```
+
+Step by step:
+
+1. **Pre-flight.** The caller's app checks it is actually connected to
+   Firebase (`.info/connected`), warns if the callee is offline, and requests
+   microphone (and, for video, camera) permission.
+2. **Place.** `SignalingService.placeCall` checks the callee's
+   `user_calls/{uid}` pointer, and refuses with "busy" if it points to a live
+   call. Otherwise it writes the call node, points both users' pointers at it,
+   and registers a server-side `onDisconnect` that marks the call
+   `disconnected` if the caller's app dies.
+3. **Ring.** The callee's app listens to its own pointer from the app root, so
+   an incoming call is caught on any screen. It shows the incoming screen and
+   writes `ringing`, which moves the caller's screen from "Calling..." to
+   "Ringing...". The caller owns a 45-second timeout that marks the call
+   `missed`.
+4. **Answer.** Accept checks permissions, registers the callee's own
+   `onDisconnect`, and writes `connected`.
+5. **Media.** Each device, on seeing `connected`, asks the token server for an
+   Agora token, then joins the channel. When each side's `onUserJoined` fires,
+   the status becomes `inCall` and the duration timer starts. Talk time is
+   measured from media arriving, not from the Accept tap.
+6. **End.** Either side's End writes `ended`, cancels its disconnect handler,
+   and clears both pointers. Both devices see the terminal status, leave the
+   channel, release the camera and microphone, and write the call into both
+   participants' histories. The screen shows the outcome for two seconds, then
+   closes.
+
+**Every other outcome is a different terminal status on the same node:**
+`rejected` (callee declined), `missed` (no answer or caller cancelled),
+`busy` (callee on another call), `failed` (token or media could not be set
+up), `disconnected` (media dropped, or an app was killed, detected by the
+server-side `onDisconnect`). A brief network drop is not an ending: Agora
+reconnects on its own and the screen shows "Reconnecting...".
+
+The call controller (`CallController`) is the one place that reconciles the
+database node with the media layer, and it follows one rule: **only the
+database decides a call is over.** When the media layer reports a problem, the
+controller writes the matching terminal status to the node, so the other
+device learns the same outcome through the same path.
 
 ---
 

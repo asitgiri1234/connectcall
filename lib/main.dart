@@ -48,8 +48,14 @@ class ConnectCallApp extends ConsumerWidget {
     // never push or pop it themselves, so the UI cannot disagree with the
     // controller about whether a call is happening.
     ref.listen<ActiveCall?>(callControllerProvider, (previous, next) {
-      final location = router.routerDelegate.currentConfiguration.uri.path;
-      final onCallScreen = location == Routes.call;
+      // Read the *top* of the route stack, not currentConfiguration.uri: per
+      // go_router, that uri "only reflects RouteMatches that are not
+      // ImperativeRouteMatch", i.e. it ignores pushed routes. Checking it
+      // made this listener believe the pushed call screen was never showing,
+      // so it never popped and a finished call left a blank screen.
+      final matches = router.routerDelegate.currentConfiguration.matches;
+      final onCallScreen =
+          matches.isNotEmpty && matches.last.matchedLocation == Routes.call;
 
       if (previous == null && next != null && !onCallScreen) {
         router.push(Routes.call);
