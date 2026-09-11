@@ -1,4 +1,4 @@
 {
-  "AGORA_APP_ID": "your-agora-app-id-here",
-  "AGORA_TOKEN": ""
+  "AGORA_APP_ID": "your-agora-app-id",
+  "TOKEN_SERVER_URL": "https://your-token-server.vercel.app"
 }
