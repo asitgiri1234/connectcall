@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/constants/app_constants.dart';
 import 'core/router/app_router.dart';
+import 'core/router/routes.dart';
 import 'core/theme/app_theme.dart';
 import 'firebase_options.dart';
 import 'providers/call_providers.dart';
@@ -41,6 +42,21 @@ class ConnectCallApp extends ConsumerWidget {
     //  - incoming calls: must be listening wherever the user is in the app
     ref.watch(presenceControllerProvider);
     ref.watch(incomingCallListenerProvider);
+
+    // The call screen follows the call. It opens when a call starts or
+    // arrives and closes when the controller clears a finished one. Screens
+    // never push or pop it themselves, so the UI cannot disagree with the
+    // controller about whether a call is happening.
+    ref.listen<ActiveCall?>(callControllerProvider, (previous, next) {
+      final location = router.routerDelegate.currentConfiguration.uri.path;
+      final onCallScreen = location == Routes.call;
+
+      if (previous == null && next != null && !onCallScreen) {
+        router.push(Routes.call);
+      } else if (previous != null && next == null && onCallScreen) {
+        router.pop();
+      }
+    });
 
     return MaterialApp.router(
       title: AppConstants.appName,

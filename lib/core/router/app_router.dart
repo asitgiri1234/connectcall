@@ -7,6 +7,7 @@ import '../../providers/auth_providers.dart';
 import '../../providers/startup_providers.dart';
 import '../../screens/auth/login_screen.dart';
 import '../../screens/auth/register_screen.dart';
+import '../../screens/call/call_screen.dart';
 import '../../screens/contacts/contacts_screen.dart';
 import '../../screens/history/history_screen.dart';
 import '../../screens/home/home_screen.dart';
@@ -85,6 +86,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: Routes.register,
         builder: (context, state) => const RegisterScreen(),
+      ),
+
+      // Full screen, above the bottom navigation. Pushed and popped by the
+      // call listener in main.dart as calls start and finish, never by a
+      // screen directly.
+      GoRoute(
+        path: Routes.call,
+        builder: (context, state) => const CallScreen(),
       ),
 
       // The four tabs live in a stateful shell so each keeps its own stack.

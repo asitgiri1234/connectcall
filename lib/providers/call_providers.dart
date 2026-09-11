@@ -41,6 +41,7 @@ class ActiveCall {
     this.muted = false,
     this.speakerOn = false,
     this.cameraOn = true,
+    this.localJoined = false,
     this.remoteRtcUid,
     this.remoteVideoOn = true,
     this.quality = NetworkQuality.unknown,
@@ -56,6 +57,10 @@ class ActiveCall {
   final bool muted;
   final bool speakerOn;
   final bool cameraOn;
+
+  /// This device has joined the media channel. The local camera preview
+  /// renders from this point, without waiting for the other person.
+  final bool localJoined;
 
   /// The other participant's Agora uid, known once their media arrives. The
   /// remote video view needs it.
@@ -76,11 +81,27 @@ class ActiveCall {
   bool get isVideo => call.type == CallType.video;
   bool get isIncomingRinging => !isCaller && status.isRinging;
 
+  /// The other participant, as a lightweight profile for names and avatars.
+  UserModel get peer => isCaller
+      ? UserModel(
+          uid: call.receiverId,
+          name: call.receiverName,
+          email: '',
+          photoUrl: call.receiverPhotoUrl,
+        )
+      : UserModel(
+          uid: call.callerId,
+          name: call.callerName,
+          email: '',
+          photoUrl: call.callerPhotoUrl,
+        );
+
   ActiveCall copyWith({
     CallModel? call,
     bool? muted,
     bool? speakerOn,
     bool? cameraOn,
+    bool? localJoined,
     int? remoteRtcUid,
     bool? remoteVideoOn,
     NetworkQuality? quality,
@@ -95,6 +116,7 @@ class ActiveCall {
       muted: muted ?? this.muted,
       speakerOn: speakerOn ?? this.speakerOn,
       cameraOn: cameraOn ?? this.cameraOn,
+      localJoined: localJoined ?? this.localJoined,
       remoteRtcUid: remoteRtcUid ?? this.remoteRtcUid,
       remoteVideoOn: remoteVideoOn ?? this.remoteVideoOn,
       quality: quality ?? this.quality,
@@ -144,6 +166,11 @@ class CallCouldNotStart extends CallAttempt {
 ///
 /// State is `null` when there is no call.
 class CallController extends Notifier<ActiveCall?> {
+  /// Upper bound on a signaling write. The RTDB SDK queues writes while
+  /// offline instead of failing them, so without a timeout a call placed or
+  /// answered on a dead connection would wait forever.
+  static const _networkTimeout = Duration(seconds: 12);
+
   StreamSubscription<CallModel?>? _callSub;
   StreamSubscription<MediaEvent>? _mediaSub;
   AgoraService? _media;
@@ -183,11 +210,9 @@ class CallController extends Notifier<ActiveCall?> {
     if (!check.isGranted) return CallBlockedByPermission(check);
 
     try {
-      final call = await _signaling.placeCall(
-        caller: me,
-        receiver: callee,
-        type: type,
-      );
+      final call = await _signaling
+          .placeCall(caller: me, receiver: callee, type: type)
+          .timeout(_networkTimeout);
       _begin(call, isCaller: true);
 
       // The caller owns the ring timeout. If nobody answers in time, the call
@@ -199,6 +224,8 @@ class CallController extends Notifier<ActiveCall?> {
         }
       });
       return const CallStarted();
+    } on TimeoutException {
+      return const CallCouldNotStart(AppException.network());
     } on AppException catch (e) {
       return CallCouldNotStart(e);
     } catch (_) {
@@ -238,8 +265,10 @@ class CallController extends Notifier<ActiveCall?> {
     if (!check.isGranted) return CallBlockedByPermission(check);
 
     try {
-      await _signaling.acceptCall(current.call.callId);
+      await _signaling.acceptCall(current.call.callId).timeout(_networkTimeout);
       return const CallStarted();
+    } on TimeoutException {
+      return const CallCouldNotStart(AppException.network());
     } catch (_) {
       return const CallCouldNotStart(AppException(
         'Could not answer the call. Check your connection.',
@@ -394,6 +423,9 @@ class CallController extends Notifier<ActiveCall?> {
     final id = current.call.callId;
 
     switch (event) {
+      case JoinedChannel():
+        state = current.copyWith(localJoined: true);
+
       case RemoteUserJoined(:final rtcUid):
         // The other person's media has arrived: this is the true start of
         // the call, and the moment the duration timer begins.
@@ -435,9 +467,6 @@ class CallController extends Notifier<ActiveCall?> {
 
       case MediaError(:final error):
         state = current.copyWith(error: error);
-
-      case JoinedChannel():
-        break;
     }
   }
 

@@ -13,10 +13,10 @@ class Routes {
   static const String history = '/history';
   static const String profile = '/profile';
 
-  // Full-screen call routes, pushed above the shell.
-  static const String outgoingCall = '/call/outgoing';
-  static const String incomingCall = '/call/incoming';
-  static const String activeCall = '/call/active';
+  /// The full-screen call UI, pushed above the shell. One route for every
+  /// call state: the screen switches between incoming, ringing, audio and
+  /// video views by reading the call controller.
+  static const String call = '/call';
 
   /// Tabs in bottom-navigation order. The index of a path here is its
   /// branch index in the shell route.
