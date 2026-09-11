@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/constants/app_constants.dart';
@@ -179,6 +180,19 @@ class CallController extends Notifier<ActiveCall?> {
   Timer? _clearTimer;
   bool _mediaStarted = false;
 
+  /// Call transitions are logged (visible with `adb logcat -s flutter`, release
+  /// builds included) so a call that ends unexpectedly on a real device can be
+  /// traced to whatever ended it. User actions also log a short stack, which
+  /// is what tells a button press apart from code calling the method.
+  void _log(String message, {bool withStack = false}) {
+    final id = state?.call.callId ?? '-';
+    debugPrint('ConnectCall[$id] $message');
+    if (withStack) {
+      final frames = StackTrace.current.toString().split('\n');
+      debugPrint(frames.skip(1).take(6).join('\n'));
+    }
+  }
+
   @override
   ActiveCall? build() {
     ref.onDispose(_disposeAll);
@@ -247,6 +261,7 @@ class CallController extends Notifier<ActiveCall?> {
     }
 
     _begin(call, isCaller: false);
+    _log('incoming from ${call.callerName}');
     // Tells the caller's screen to move from "Calling..." to "Ringing...":
     // the call has actually reached this device.
     unawaited(_signaling.markRinging(call.callId));
@@ -262,6 +277,7 @@ class CallController extends Notifier<ActiveCall?> {
 
     // Deliberately not auto-declining on refusal: the user may want to grant
     // the permission and answer, or decline themselves.
+    _log('accept');
     final check = await _permissions.ensureForCall(current.call.type);
     if (!check.isGranted) return CallBlockedByPermission(check);
 
@@ -281,6 +297,7 @@ class CallController extends Notifier<ActiveCall?> {
   Future<void> decline() async {
     final current = state;
     if (current == null || !current.isIncomingRinging) return;
+    _log('decline', withStack: true);
     await _signaling.rejectCall(current.call.callId);
   }
 
@@ -289,6 +306,7 @@ class CallController extends Notifier<ActiveCall?> {
   Future<void> hangUp() async {
     final current = state;
     if (current == null || current.status.isTerminal) return;
+    _log('hangUp while ${current.status.name}', withStack: true);
     final id = current.call.callId;
 
     if (current.status.isRinging) {
@@ -486,6 +504,7 @@ class CallController extends Notifier<ActiveCall?> {
   /// show why the call ended before it closes.
   void _finish(CallModel call) {
     _ringTimer?.cancel();
+    _log('finished: ${call.status.name}');
     state = state?.copyWith(call: call);
 
     unawaited(_callSub?.cancel());
