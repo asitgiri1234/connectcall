@@ -143,7 +143,18 @@ class SignalingService {
 
   /// Callee accepted. Both sides join the media channel on observing this.
   Future<void> acceptCall(String callId) async {
-    await _db.ref(DbPaths.call(callId)).update({
+    final callRef = _db.ref(DbPaths.call(callId));
+
+    // The caller registered a disconnect handler when placing the call. The
+    // callee registers its own here, so a crash or dropped connection on
+    // either side ends the call for the other, instead of leaving them
+    // talking to silence.
+    await callRef.onDisconnect().update({
+      'status': CallStatus.disconnected.name,
+      'endedAt': ServerValue.timestamp,
+    });
+
+    await callRef.update({
       'status': CallStatus.connected.name,
       'connectedAt': ServerValue.timestamp,
     });
@@ -151,6 +162,30 @@ class SignalingService {
 
   Future<void> rejectCall(String callId) =>
       _endWith(callId, CallStatus.rejected);
+
+  /// The callee was already on another call when this one arrived. Normally
+  /// [placeCall]'s busy check prevents this; it covers two calls landing at
+  /// the same instant.
+  Future<void> markBusy(String callId) => _endWith(callId, CallStatus.busy);
+
+  /// Media dropped and did not recover.
+  Future<void> markDisconnected(String callId) =>
+      _endWith(callId, CallStatus.disconnected);
+
+  /// Cancels this device's pending disconnect handler for a call that has
+  /// already ended.
+  ///
+  /// [_endWith] does this for whichever side ends the call. The *other* side
+  /// never calls [_endWith], so without this its handler would stay armed and
+  /// fire whenever that device next goes offline, possibly hours later,
+  /// overwriting the call's real outcome with "disconnected".
+  Future<void> releaseCall(String callId) async {
+    try {
+      await _db.ref(DbPaths.call(callId)).onDisconnect().cancel();
+    } catch (_) {
+      // Best effort.
+    }
+  }
 
   /// Caller gave up, or the ring timed out with no answer.
   Future<void> markMissed(String callId) =>
