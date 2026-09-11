@@ -56,9 +56,12 @@
 
     "user_calls": {
       "$uid": {
-        // Only the owner reads their own pointer, so nobody can poll whether
-        // someone else is on a call.
-        ".read": "auth != null && auth.uid === $uid",
+        // Readable by any signed-in user. A caller must read the callee's
+        // pointer to detect "busy" before ringing, and whoever ends a call
+        // must read the other party's pointer to clear it only if it still
+        // refers to that call. The pointer is only a call id; the call node
+        // itself stays readable by its two participants alone.
+        ".read": "auth != null",
 
         // Deliberately writable by any signed-in user: placing a call means
         // writing a pointer into the *callee's* node. The pointer is only a
