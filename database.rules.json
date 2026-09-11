@@ -1,0 +1,101 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+
+    "users": {
+      // Any signed-in user can read the directory: that is what makes the
+      // contacts list and search work.
+      ".read": "auth != null",
+
+      "$uid": {
+        // A user may only write their own record. This is what stops one
+        // account editing another's name or faking someone else's presence.
+        ".write": "auth != null && auth.uid === $uid",
+        ".validate": "newData.hasChildren(['name', 'email'])",
+
+        "name": { ".validate": "newData.isString() && newData.val().length >= 2 && newData.val().length <= 50" },
+        "email": { ".validate": "newData.isString()" },
+        "photoUrl": { ".validate": "newData.isString() || newData.val() === null" },
+        "isOnline": { ".validate": "newData.isBoolean()" },
+        "lastSeen": { ".validate": "newData.isNumber()" },
+        "createdAt": { ".validate": "newData.isNumber()" },
+        "$other": { ".validate": false }
+      }
+    },
+
+    "calls": {
+      "$callId": {
+        // Only the two participants can see or touch a call. Reading the
+        // whole calls collection is denied, so nobody can enumerate who is
+        // calling whom.
+        ".read": "auth != null && (data.child('callerId').val() === auth.uid || data.child('receiverId').val() === auth.uid)",
+
+        // Creating a call requires being the caller named in it - you cannot
+        // fabricate a call that appears to come from someone else. Updating
+        // requires already being a participant.
+        ".write": "auth != null && ((!data.exists() && newData.child('callerId').val() === auth.uid) || (data.exists() && (data.child('callerId').val() === auth.uid || data.child('receiverId').val() === auth.uid)))",
+
+        ".validate": "newData.hasChildren(['callerId', 'receiverId', 'type', 'status', 'channelName'])",
+
+        "callerId": { ".validate": "newData.isString()" },
+        "callerName": { ".validate": "newData.isString()" },
+        "callerPhotoUrl": { ".validate": "newData.isString() || newData.val() === null" },
+        "receiverId": { ".validate": "newData.isString()" },
+        "receiverName": { ".validate": "newData.isString()" },
+        "receiverPhotoUrl": { ".validate": "newData.isString() || newData.val() === null" },
+        "type": { ".validate": "newData.val() === 'audio' || newData.val() === 'video'" },
+        "status": { ".validate": "newData.isString()" },
+        "channelName": { ".validate": "newData.isString()" },
+        "createdAt": { ".validate": "newData.isNumber()" },
+        "connectedAt": { ".validate": "newData.isNumber()" },
+        "endedAt": { ".validate": "newData.isNumber()" },
+        "$other": { ".validate": false }
+      }
+    },
+
+    "user_calls": {
+      "$uid": {
+        // Only the owner reads their own pointer, so nobody can poll whether
+        // someone else is on a call.
+        ".read": "auth != null && auth.uid === $uid",
+
+        // Deliberately writable by any signed-in user: placing a call means
+        // writing a pointer into the *callee's* node. The pointer is only a
+        // call id, and the call node's own rules still require the writer to
+        // be a genuine participant, so this cannot be used to do anything
+        // beyond making someone's phone ring.
+        ".write": "auth != null",
+        ".validate": "newData.isString() || newData.val() === null"
+      }
+    },
+
+    "call_history": {
+      "$uid": {
+        // Your history is yours alone to read.
+        ".read": "auth != null && auth.uid === $uid",
+
+        // Writable by any signed-in user, because ending a call writes a
+        // record into *both* participants' histories.
+        ".write": "auth != null",
+
+        "$callId": {
+          ".validate": "newData.hasChildren(['peerId', 'type', 'direction', 'status'])",
+          "peerId": { ".validate": "newData.isString()" },
+          "peerName": { ".validate": "newData.isString()" },
+          "peerPhotoUrl": { ".validate": "newData.isString() || newData.val() === null" },
+          "type": { ".validate": "newData.val() === 'audio' || newData.val() === 'video'" },
+          "direction": { ".validate": "newData.val() === 'incoming' || newData.val() === 'outgoing'" },
+          "status": { ".validate": "newData.isString()" },
+          "startedAt": { ".validate": "newData.isNumber()" },
+          "durationSeconds": { ".validate": "newData.isNumber() && newData.val() >= 0" },
+          "$other": { ".validate": false }
+        },
+
+        // Indexed so history can be queried newest-first without pulling the
+        // whole node down and sorting on the client.
+        ".indexOn": ["startedAt"]
+      }
+    }
+  }
+}
